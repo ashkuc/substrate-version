@@ -82,16 +82,14 @@
 
     const middle = Math.floor((to + from) / 2);
 
-    await Promise.all([
-      getVersionRanges(from, middle),
-      getVersionRanges(middle, to)
-    ]);
+    await getVersionRanges(from, middle);
+    await getVersionRanges(middle, to);
   }
 </script>
 
 <main>
 
-  <input bind:value={wsUrl} disabled='{api}' placeholder="enter ws url">
+  <input type="text" bind:value={wsUrl} disabled='{api}' placeholder="enter ws url">
   <button on:click={onConnect}>{ api ? 'Disconnect' : 'Connect'}</button>
 
   {#if api}
@@ -109,7 +107,7 @@
 
     <button on:click={onStart} disabled={processing}>{processing ? 'Processing' : 'Start'}</button>
 
-    <p>Called RPC {callsCount} times</p>
+    {#if callsCount}<p>Called RPC {callsCount} times</p>{/if}
   {/if}
 
   <VersionsComponent versions={versions} />
@@ -117,5 +115,7 @@
 </main>
 
 <style>
-
+  input[type=text] {
+    width: 300px;
+  }
 </style>

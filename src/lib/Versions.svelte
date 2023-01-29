@@ -1,14 +1,7 @@
 <script lang="ts">
-  import { beforeUpdate } from "svelte";
-
   type Versions = Record<string, { from: number; to: number; }>;
 
   export let versions: Versions;
-
-  beforeUpdate(() => {
-    console.log('update');
-    console.log(JSON.stringify(versions));
-  });
 
   $: scanned = Object.values(versions).reduce((acc, { from, to }) => {
     return acc + ( to - from + 1);
@@ -28,7 +21,7 @@
   <p>Scanned: {scanned} of {last} ({percent}%)</p>
   <ul>
     {#each versionsSorted as [version, { from, to }]}
-      <li>{version}: {from} - {to} <a href={getLink(from)} target="_blank">open block</a></li>
+      <li>{version}: {from} - {to} <a href={getLink(from)} target="_blank" rel="noreferrer">open block</a></li>
     {/each}
   </ul>
 {/if}
