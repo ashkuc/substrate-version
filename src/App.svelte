@@ -1,45 +1,121 @@
 <script lang="ts">
-  import svelteLogo from './assets/svelte.svg'
-  import Counter from './lib/Counter.svelte'
+  import { Api } from "./lib/api.js";
+  import VersionsComponent from './lib/Versions.svelte';
+
+  type Versions = Record<string, { from: number; to: number; }>;
+
+
+  let wsUrl = 'wss://ws-quartz.unique.network';
+  let api: Api = null;
+
+  let from = 0;
+  let to = 0;
+
+  let processing = false;
+
+  let callsCount = 0;
+
+  let versions: Versions = {};
+
+  const onConnect = async () => {
+    if (!api) {
+      api = await Api.create(wsUrl);
+      from = 1;
+      to = await api.getLastBlock();
+    } else {
+      api = null;
+      from = 0;
+      to = 0;
+    }
+
+    versions = {};
+  };
+
+  const onStart = async () => {
+    const fromNum = parseInt(from.toString(), 10);
+    const toNum = parseInt(to.toString(), 10);
+
+    if (Number.isNaN(fromNum) || Number.isNaN(toNum) || fromNum > toNum) {
+      console.warn(`Wrong numbers`);
+
+      return;
+    }
+
+    versions = {};
+    processing = true;
+    callsCount = 0;
+
+    await getVersionRanges(fromNum, toNum);
+
+    processing = false;
+  }
+
+  function updateVersions (version: string, blockNumber: number): void {
+    if (!versions[version]) {
+      versions[version] = { from: blockNumber, to: blockNumber };
+
+      return;
+    }
+
+    if (versions[version].from > blockNumber) {
+      versions[version].from = blockNumber;
+    }
+
+    if (versions[version].to < blockNumber) {
+      versions[version].to = blockNumber;
+    }
+  }
+
+  async function getVersionRanges(from: number, to: number): Promise<void> {
+    const [fromVersion, toVersion] = await Promise.all([
+      await api.getVersionAt(from),
+      await api.getVersionAt(to),
+    ]);
+
+    callsCount = api.calls;
+
+    updateVersions(fromVersion, from);
+    updateVersions(toVersion, to);
+
+    if (fromVersion === toVersion) return;
+    if (to - from <= 1) return;
+
+    const middle = Math.floor((to + from) / 2);
+
+    await Promise.all([
+      getVersionRanges(from, middle),
+      getVersionRanges(middle, to)
+    ]);
+  }
 </script>
 
 <main>
-  <div>
-    <a href="https://vitejs.dev" target="_blank" rel="noreferrer"> 
-      <img src="/vite.svg" class="logo" alt="Vite Logo" />
-    </a>
-    <a href="https://svelte.dev" target="_blank" rel="noreferrer"> 
-      <img src={svelteLogo} class="logo svelte" alt="Svelte Logo" />
-    </a>
-  </div>
-  <h1>Vite + Svelte</h1>
 
-  <div class="card">
-    <Counter />
-  </div>
+  <input bind:value={wsUrl} disabled='{api}' placeholder="enter ws url">
+  <button on:click={onConnect}>{ api ? 'Disconnect' : 'Connect'}</button>
 
-  <p>
-    Check out <a href="https://github.com/sveltejs/kit#readme" target="_blank" rel="noreferrer">SvelteKit</a>, the official Svelte app framework powered by Vite!
-  </p>
+  {#if api}
+    <div>
+      <label>
+        From
+        <input bind:value={from} placeholder="from">
+      </label>
 
-  <p class="read-the-docs">
-    Click on the Vite and Svelte logos to learn more
-  </p>
+      <label>
+        To
+        <input bind:value={to} placeholder="to">
+      </label>
+    </div>
+
+    <button on:click={onStart} disabled={processing}>{processing ? 'Processing' : 'Start'}</button>
+
+    <p>Called RPC {callsCount} times</p>
+  {/if}
+
+  <VersionsComponent versions={versions} />
+
 </main>
 
 <style>
-  .logo {
-    height: 6em;
-    padding: 1.5em;
-    will-change: filter;
-  }
-  .logo:hover {
-    filter: drop-shadow(0 0 2em #646cffaa);
-  }
-  .logo.svelte:hover {
-    filter: drop-shadow(0 0 2em #ff3e00aa);
-  }
-  .read-the-docs {
-    color: #888;
-  }
+
 </style>
